@@ -1540,6 +1540,7 @@ CPLUSPLUS_FLAGS         += -fno-operator-names
 CPLUSPLUS_FLAGS         += -fno-exceptions
 CPLUSPLUS_FLAGS         += -fno-optional-diags
 CPLUSPLUS_FLAGS         += -fno-rtti
+CPLUSPLUS_FLAGS         += -std=gnu++03
 
 CPP_DEF_FLAGS_i386       = -Di386
 CPP_DEF_FLAGS_arm	 =

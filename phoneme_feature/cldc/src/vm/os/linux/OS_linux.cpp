@@ -953,10 +953,12 @@ void Os::initialize() {
   // results can be unpredictable if we'll modify stack in
   // Java heap and VM will not know. We handle signals either when
   // using SIGVTALRM, or when printing pss() in case of a crash.
+# define PIKO_ALT_STACK_BASE 32768
+
 # if defined(PRODUCT)
-# define ALT_STACK_SIZE (MINSIGSTKSZ)
+# define ALT_STACK_SIZE (PIKO_ALT_STACK_BASE)
 # else
-# define ALT_STACK_SIZE (MINSIGSTKSZ + 2048)
+# define ALT_STACK_SIZE (PIKO_ALT_STACK_BASE + 2048)
 # endif
 
   static char alt_stack_buf[ALT_STACK_SIZE];

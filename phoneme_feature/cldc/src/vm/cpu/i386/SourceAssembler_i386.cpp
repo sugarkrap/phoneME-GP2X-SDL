@@ -85,8 +85,10 @@ void SourceAssembler::start() {
       emit("\t.486P\n");
       emit("\t.MODEL flat, C\n\n");
     }
-  } else
+  } else {
     emit("\t.arch i486\n");
+    emit("\t.arch .387\n");
+  }
   start_code_segment();
 }
 
