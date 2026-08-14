@@ -157,6 +157,9 @@ LOG_ONLY   = >> $(LOG_FILE)
 JAR_CMD      = $(JDK_DIR)/bin/jar$(EXE)
 JAVA_CMD     = $(JDK_DIR)/bin/java$(EXE)
 JAVAC_CMD    = $(JDK_DIR)/bin/javac$(EXE)
+ifndef JAVAC_SOURCE_TARGET
+JAVAC_SOURCE_TARGET = -source 1.4 -target 1.4
+endif
 JAVADOC_CMD  = $(JDK_DIR)/bin/javadoc$(EXE)
 
 # MIDP tools
@@ -417,7 +420,7 @@ define compilefiles
 		else \
 			f2= ; \
 		fi ; \
-		$(JAVAC_CMD) -g$(JAVAC_DEBUG) -d $(JAVAC_OUT_DIR) \
+		$(JAVAC_CMD) -g$(JAVAC_DEBUG) $(JAVAC_SOURCE_TARGET) -d $(JAVAC_OUT_DIR) \
 			-bootclasspath $(BOOTCLASSPATH) \
 			-classpath $(CLASSBINDIR) $$f1 $$f2 || exit 1; \
 		if test "$(TARGET_VM)" = "cldc_vm"; then \

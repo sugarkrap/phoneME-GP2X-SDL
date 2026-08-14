@@ -128,7 +128,8 @@ INT_XML_FILES += $(SUBSYSTEM_CONFIGURATION_SKIN_XML_FILE)
 
 # Command for invoking transformer
 INT_INVOKE_TRANSFORMER = \
-	$(JAVA_CMD) -jar $(CONFIGURATOR_JAR_FILE)
+	$(JAVA_CMD) $(PIKO_XSLT_FLAGS) -cp $(CONFIGURATOR_JAR_FILE)$(PIKO_XSLT_CP) \
+		com.sun.xml.transform.CodeTransformer
 
 # Command for invoking localized strings generator
 INT_INVOKE_L10N_GENERATOR = \
