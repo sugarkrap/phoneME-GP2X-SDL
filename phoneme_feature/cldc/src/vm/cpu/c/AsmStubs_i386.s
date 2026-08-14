@@ -25,6 +25,7 @@
 #
 
 .arch i486
+.arch .387
 .text
 .align 16
 
