@@ -74,7 +74,8 @@ int lfjport_ui_init()
   OriginalWidth = OriginalOrientation ? SDL_FULLHEIGHT : SDL_FULLWIDTH;
   OriginalHeight = OriginalOrientation ? SDL_FULLWIDTH : SDL_FULLHEIGHT;
   InitGP2XKeys();
-  Native_SDL_Screen = SDL_SetVideoMode(SDL_FULLWIDTH, SDL_FULLHEIGHT, 16, 0);
+  Native_SDL_Screen = SDL_SetVideoMode(SDL_FULLWIDTH, SDL_FULLHEIGHT, 16,
+                                       getenv("PIKO_WINDOWED") ? 0 : SDL_FULLSCREEN);
   if (Native_SDL_Screen == NULL) return(-2);
   Native_SDL_HScreen = SDL_CreateRGBSurface(SDL_SWSURFACE, OriginalWidth, OriginalHeight, 16, 0x0000F800, 0x000007E0, 0x0000001F, 0x00000000);
   if (Native_SDL_HScreen == NULL) return(-3);
@@ -118,6 +119,18 @@ void VideoCopyRotate(unsigned short *Buffer, unsigned short *Video)
   for(y=0; y<SDL_FULLHEIGHT; y++, Buffer+=rowinc+bufinc)
      for(x=0; x<SDL_FULLWIDTH; x++, Video++, Buffer-=bufinc)
           *Video = *Buffer;
+}
+
+void piko_screen_to_canvas(int sx, int sy, int *cx, int *cy)
+{ int screen_rotated = Native_SDL_ScreenOrientation ? 1 : 0;
+  if (screen_rotated == OriginalOrientation)
+     { *cx = sx;
+       *cy = sy;
+     }
+  else
+     { *cx = sy;
+       *cy = SDL_FULLWIDTH - 1 - sx;
+     }
 }
 
 void lfjport_refresh(int x1, int y1, int x2, int y2)

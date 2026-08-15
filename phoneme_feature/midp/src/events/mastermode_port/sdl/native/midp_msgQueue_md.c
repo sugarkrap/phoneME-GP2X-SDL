@@ -103,6 +103,23 @@ void KeyboardCheck(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNe
           case SDLK_HOME:   Key = KEYMAP_KEY_SEND; break;
           case SDLK_END:    Key = KEYMAP_KEY_END; break;
           case SDLK_PAGEUP: Key = -9; break;
+          case SDLK_F11:    Key = KEYMAP_KEY_SELECT; break;
+          case SDLK_SPACE:  Key = KEYMAP_KEY_SELECT; break;
+          case SDLK_F12:    Key = KEYMAP_KEY_SOFT1; break;
+          case SDLK_F10:    Key = KEYMAP_KEY_SOFT2; break;
+          case SDLK_BACKSPACE: Key = KEYMAP_KEY_CLEAR; break;
+          case SDLK_0:      Key = KEYMAP_KEY_0; break;
+          case SDLK_1:      Key = KEYMAP_KEY_1; break;
+          case SDLK_2:      Key = KEYMAP_KEY_2; break;
+          case SDLK_3:      Key = KEYMAP_KEY_3; break;
+          case SDLK_4:      Key = KEYMAP_KEY_4; break;
+          case SDLK_5:      Key = KEYMAP_KEY_5; break;
+          case SDLK_6:      Key = KEYMAP_KEY_6; break;
+          case SDLK_7:      Key = KEYMAP_KEY_7; break;
+          case SDLK_8:      Key = KEYMAP_KEY_8; break;
+          case SDLK_9:      Key = KEYMAP_KEY_9; break;
+          case SDLK_ASTERISK: Key = KEYMAP_KEY_ASTERISK; break;
+          case SDLK_HASH:   Key = KEYMAP_KEY_POUND; break;
           default: Key = KEYMAP_KEY_INVALID;
         }
   pNewSignal->waitingFor = UI_SIGNAL;
@@ -121,14 +138,56 @@ void JoystickCheck(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNe
   pNewMidpEvent->ACTION = (event->jbutton.state == SDL_PRESSED) ? KEYMAP_STATE_PRESSED : KEYMAP_STATE_RELEASED;
 }
 
+extern void piko_screen_to_canvas(int sx, int sy, int *cx, int *cy);
+
+void MouseCheck(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMidpEvent)
+{ int sx, sy, cx, cy, action;
+  if (event->type == SDL_MOUSEMOTION)
+     { if (!(event->motion.state & SDL_BUTTON(SDL_BUTTON_LEFT))) return;
+       sx = event->motion.x;
+       sy = event->motion.y;
+       action = KEYMAP_STATE_DRAGGED;
+     }
+  else
+     { if (event->button.button != SDL_BUTTON_LEFT) return;
+       sx = event->button.x;
+       sy = event->button.y;
+       action = (event->button.state == SDL_PRESSED) ? KEYMAP_STATE_PRESSED : KEYMAP_STATE_RELEASED;
+     }
+  piko_screen_to_canvas(sx, sy, &cx, &cy);
+  pNewSignal->waitingFor = UI_SIGNAL;
+  pNewMidpEvent->type = MIDP_PEN_EVENT;
+  pNewMidpEvent->X_POS = cx;
+  pNewMidpEvent->Y_POS = cy;
+  pNewMidpEvent->ACTION = action;
+}
+
 static int piko_quit_key(void)
 {
   static int key = -2;
   if (key == -2)
     { const char *v = getenv("PIKO_QUIT_KEY");
-      key = v ? atoi(v) : SDLK_ESCAPE;
+      key = v ? atoi(v) : SDLK_F4;
     }
   return key;
+}
+
+static int piko_quit_hard(void)
+{
+  static int hard = -1;
+  if (hard < 0)
+    hard = (getenv("PIKO_QUIT_HARD") != NULL);
+  return hard;
+}
+
+static void piko_shutdown(MidpReentryData* pNewSignal, MidpEvent* pNewMidpEvent)
+{
+  if (piko_quit_hard())
+     { SDL_Quit();
+       exit(0);
+     }
+  pNewSignal->waitingFor = AMS_SIGNAL;
+  pNewMidpEvent->type = SHUTDOWN_EVENT;
 }
 
 static int piko_keylog(void)
@@ -141,8 +200,8 @@ static int piko_keylog(void)
 
 void CheckEvent(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMidpEvent)
 { if (event->type == SDL_QUIT)
-     { SDL_Quit();
-       exit(0);
+     { piko_shutdown(pNewSignal, pNewMidpEvent);
+       return;
      }
   if ((event->type == SDL_KEYDOWN) || (event->type == SDL_KEYUP))
      { if (piko_keylog() && event->type == SDL_KEYDOWN)
@@ -154,14 +213,19 @@ void CheckEvent(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMi
        if (event->type == SDL_KEYDOWN
            && piko_quit_key() >= 0
            && (int)event->key.keysym.sym == piko_quit_key())
-          { SDL_Quit();
-            exit(0);
+          { piko_shutdown(pNewSignal, pNewMidpEvent);
+            return;
           }
        KeyboardCheck(event, pNewSignal, pNewMidpEvent);
        return;
      }
   if ((event->type == SDL_JOYBUTTONDOWN) || (event->type == SDL_JOYBUTTONUP))
      { JoystickCheck(event, pNewSignal, pNewMidpEvent);
+       return;
+     }
+  if ((event->type == SDL_MOUSEBUTTONDOWN) || (event->type == SDL_MOUSEBUTTONUP)
+      || (event->type == SDL_MOUSEMOTION))
+     { MouseCheck(event, pNewSignal, pNewMidpEvent);
        return;
      }
 }
