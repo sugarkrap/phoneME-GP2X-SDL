@@ -28,6 +28,9 @@
 #include <midp_mastermode_port.h>
 #include <keymap_input.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "SDL.h"
 
 static int GP2X_Default_keys[19];
@@ -118,13 +121,43 @@ void JoystickCheck(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNe
   pNewMidpEvent->ACTION = (event->jbutton.state == SDL_PRESSED) ? KEYMAP_STATE_PRESSED : KEYMAP_STATE_RELEASED;
 }
 
+static int piko_quit_key(void)
+{
+  static int key = -2;
+  if (key == -2)
+    { const char *v = getenv("PIKO_QUIT_KEY");
+      key = v ? atoi(v) : SDLK_ESCAPE;
+    }
+  return key;
+}
+
+static int piko_keylog(void)
+{
+  static int on = -1;
+  if (on < 0)
+    on = (getenv("PIKO_KEYLOG") != NULL);
+  return on;
+}
+
 void CheckEvent(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMidpEvent)
 { if (event->type == SDL_QUIT)
      { SDL_Quit();
        exit(0);
      }
   if ((event->type == SDL_KEYDOWN) || (event->type == SDL_KEYUP))
-     { KeyboardCheck(event, pNewSignal, pNewMidpEvent);
+     { if (piko_keylog() && event->type == SDL_KEYDOWN)
+          { fprintf(stderr, "piko: keysym %d (0x%x) mod 0x%x\n",
+                    (int)event->key.keysym.sym, (int)event->key.keysym.sym,
+                    (int)event->key.keysym.mod);
+            fflush(stderr);
+          }
+       if (event->type == SDL_KEYDOWN
+           && piko_quit_key() >= 0
+           && (int)event->key.keysym.sym == piko_quit_key())
+          { SDL_Quit();
+            exit(0);
+          }
+       KeyboardCheck(event, pNewSignal, pNewMidpEvent);
        return;
      }
   if ((event->type == SDL_JOYBUTTONDOWN) || (event->type == SDL_JOYBUTTONUP))
