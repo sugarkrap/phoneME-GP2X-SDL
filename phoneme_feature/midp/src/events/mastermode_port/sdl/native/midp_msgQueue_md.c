@@ -35,6 +35,43 @@
 
 static int GP2X_Default_keys[19];
 
+static int piko_eventlog(void)
+{
+  static int on = -1;
+  if (on < 0)
+    on = (getenv("PIKO_EVENTLOG") != NULL);
+  return on;
+}
+
+static unsigned long PikoStatCalls;
+static unsigned long PikoStatEvents;
+static unsigned long PikoStatKeys;
+static unsigned long PikoStatPen;
+static unsigned long PikoStatSignals;
+static unsigned long PikoStatSpin;
+static jlong PikoStatLast;
+
+static void piko_stats(jlong now, MidpReentryData* pNewSignal)
+{
+  if (!piko_eventlog())
+    return;
+  if (pNewSignal->waitingFor != 0)
+    PikoStatSignals++;
+  if (PikoStatLast == 0)
+    PikoStatLast = now;
+  if (now - PikoStatLast < 5000)
+    return;
+  fprintf(stderr,
+          "piko: pump calls=%lu events=%lu keys=%lu pen=%lu signals=%lu spin_ms=%lu\n",
+          PikoStatCalls, PikoStatEvents, PikoStatKeys, PikoStatPen,
+          PikoStatSignals, PikoStatSpin);
+  fflush(stderr);
+  PikoStatCalls = PikoStatEvents = PikoStatKeys = 0;
+  PikoStatPen = PikoStatSignals = PikoStatSpin = 0;
+  PikoStatLast = now;
+}
+
+
 void InitGP2XKeys()
 { char *Value;
   GP2X_Default_keys[0] = KEYMAP_KEY_UP;
@@ -140,21 +177,30 @@ void JoystickCheck(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNe
 
 extern void piko_screen_to_canvas(int sx, int sy, int *cx, int *cy);
 
+static int PikoPenX = -1;
+static int PikoPenY = -1;
+
 void MouseCheck(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMidpEvent)
-{ int sx, sy, cx, cy, action;
+{ int sx, sy, cx, cy, action, pressed;
   if (event->type == SDL_MOUSEMOTION)
-     { if (!(event->motion.state & SDL_BUTTON(SDL_BUTTON_LEFT))) return;
+     { pressed = (event->motion.state & SDL_BUTTON(SDL_BUTTON_LEFT)) ? 1 : 0;
        sx = event->motion.x;
        sy = event->motion.y;
-       action = KEYMAP_STATE_DRAGGED;
      }
   else
      { if (event->button.button != SDL_BUTTON_LEFT) return;
+       pressed = (event->button.state == SDL_PRESSED);
        sx = event->button.x;
        sy = event->button.y;
-       action = (event->button.state == SDL_PRESSED) ? KEYMAP_STATE_PRESSED : KEYMAP_STATE_RELEASED;
      }
   piko_screen_to_canvas(sx, sy, &cx, &cy);
+  if (cx != PikoPenX || cy != PikoPenY)
+     action = pressed ? KEYMAP_STATE_DRAGGED : -1;
+  else
+     action = pressed ? KEYMAP_STATE_PRESSED : KEYMAP_STATE_RELEASED;
+  PikoPenX = cx;
+  PikoPenY = cy;
+  if (action < 0) return;
   pNewSignal->waitingFor = UI_SIGNAL;
   pNewMidpEvent->type = MIDP_PEN_EVENT;
   pNewMidpEvent->X_POS = cx;
@@ -216,6 +262,7 @@ void CheckEvent(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMi
           { piko_shutdown(pNewSignal, pNewMidpEvent);
             return;
           }
+       PikoStatKeys++;
        KeyboardCheck(event, pNewSignal, pNewMidpEvent);
        return;
      }
@@ -225,7 +272,8 @@ void CheckEvent(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMi
      }
   if ((event->type == SDL_MOUSEBUTTONDOWN) || (event->type == SDL_MOUSEBUTTONUP)
       || (event->type == SDL_MOUSEMOTION))
-     { MouseCheck(event, pNewSignal, pNewMidpEvent);
+     { PikoStatPen++;
+       MouseCheck(event, pNewSignal, pNewMidpEvent);
        return;
      }
 }
@@ -245,16 +293,24 @@ void CheckEvent(SDL_Event *event, MidpReentryData* pNewSignal, MidpEvent* pNewMi
 void checkForSystemSignal(MidpReentryData* pNewSignal, MidpEvent* pNewMidpEvent, jlong timeout) 
 { SDL_Event event;
   jlong currentTime = JVM_JavaMilliSeconds(), stopTime;
+  PikoStatCalls++;
   if (timeout == -1)
      { if (SDL_WaitEvent(&event))
-          CheckEvent(&event, pNewSignal, pNewMidpEvent);
+          { PikoStatEvents++;
+            CheckEvent(&event, pNewSignal, pNewMidpEvent);
+          }
+       piko_stats(JVM_JavaMilliSeconds(), pNewSignal);
        return;
      }
   do { if (SDL_PollEvent(&event))
-          { CheckEvent(&event, pNewSignal, pNewMidpEvent);
+          { PikoStatEvents++;
+            CheckEvent(&event, pNewSignal, pNewMidpEvent);
+            piko_stats(JVM_JavaMilliSeconds(), pNewSignal);
             return;
           }
        stopTime = JVM_JavaMilliSeconds();
      } while((stopTime - currentTime) < timeout);
+  PikoStatSpin += (unsigned long)(stopTime - currentTime);
+  piko_stats(stopTime, pNewSignal);
 }
 

@@ -418,6 +418,10 @@ int Timidity_Init()
    *            file itself since that file should contain any other directory
    *            that needs to be added to the search path.
    */
+  const char *piko_dir = getenv("PIKO_TIMIDITY_DIR");
+
+  if (piko_dir != NULL && *piko_dir != '\0')
+    add_to_pathlist((char *)piko_dir);
   add_to_pathlist("/usr/local/lib/timidity");
   add_to_pathlist("/etc/timidity");
   add_to_pathlist("/mnt/sd/midi");

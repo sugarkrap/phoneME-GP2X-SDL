@@ -18,8 +18,21 @@ struct MediaSDL_Channel
 };
 static int                      MediaSDL_NumChannel;
 static struct MediaSDL_Channel *MediaSDL_Channels;
+static int                      MediaSDL_MidiReady;
 
 #define SAMPLE_FREQ	22050
+
+#define PIKO_MIDI_AMP_DEFAULT 300
+
+static int MediaSDL_MidiAmp(void)
+{ static int amp = -1;
+  if (amp < 0)
+     { const char *v = getenv("PIKO_MIDI_AMP");
+       amp = (v != NULL && *v != '\0') ? atoi(v) : PIKO_MIDI_AMP_DEFAULT;
+       if (amp < 0) amp = 0;
+     }
+  return amp;
+}
 
 void AudioSubsystemCallback(int chan)
 { if ((chan>=0)&&(chan<MediaSDL_NumChannel))
@@ -32,7 +45,7 @@ int InitAudioSubsystem()
 { int chan;
   if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return(-1);
   if (Mix_OpenAudio(SAMPLE_FREQ, AUDIO_S16SYS, 2, 4096) != 0) return(-2);
-  if (Timidity_Init() < 0) return(-3);
+  MediaSDL_MidiReady = (Timidity_Init() == 0);
   MediaSDL_NumChannel = Mix_AllocateChannels(32);
   if (MediaSDL_NumChannel < 1) return(-4);
   MediaSDL_Channels = (struct MediaSDL_Channel *)malloc(sizeof(struct MediaSDL_Channel) * MediaSDL_NumChannel);
@@ -47,7 +60,7 @@ int InitAudioSubsystem()
 }
 
 void FinalizeAudioSubsystem()
-{ Timidity_Exit();
+{ if (MediaSDL_MidiReady) Timidity_Exit();
   SDL_CloseAudio();
   SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
@@ -228,15 +241,16 @@ KNIEXPORT KNI_RETURNTYPE_INT Java_javax_microedition_media_MIDIPlayer_nMidiPlaye
   else { KNI_GetRawArrayRegion(buf, 0, (jsize)BufferSize, (jbyte*)Buffer);
          RW = SDL_RWFromMem(Buffer, BufferSize);
          if (RW == NULL) ret = -2;
-         else { audio.freq = 22050;
+         else { audio.freq = SAMPLE_FREQ;
                 audio.format = AUDIO_S16SYS;
                 audio.channels = 2;
                 audio.samples = MIDI_CHUNK_SIZE >> 2;
                 audio.callback = NULL;
-                NMP->Song = Timidity_LoadSong(RW, &audio);
+                NMP->Song = MediaSDL_MidiReady ? Timidity_LoadSong(RW, &audio) : NULL;
                 SDL_RWclose(RW);
                 free(Buffer);
                 if (NMP->Song == NULL) ret = -3;
+                else Timidity_SetVolume(NMP->Song, MediaSDL_MidiAmp());
               }
        }
   KNI_EndHandles();
