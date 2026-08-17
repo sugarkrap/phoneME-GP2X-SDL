@@ -1585,6 +1585,8 @@ ifeq ($(LINK_PTHREAD), true)
 LINK_FLAGS             += -lpthread
 endif
 
+LINK_FLAGS             += -lm
+
 ifeq ($(ENABLE_PCSL), true)
 PCSL_LIBS               = $(PCSL_DIST_DIR)/lib/libpcsl_memory.a  \
                           $(PCSL_DIST_DIR)/lib/libpcsl_print.a   \
