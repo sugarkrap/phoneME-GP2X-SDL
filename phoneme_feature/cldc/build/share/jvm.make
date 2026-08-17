@@ -1585,8 +1585,6 @@ ifeq ($(LINK_PTHREAD), true)
 LINK_FLAGS             += -lpthread
 endif
 
-LINK_FLAGS             += -lm
-
 ifeq ($(ENABLE_PCSL), true)
 PCSL_LIBS               = $(PCSL_DIST_DIR)/lib/libpcsl_memory.a  \
                           $(PCSL_DIST_DIR)/lib/libpcsl_print.a   \
@@ -1607,12 +1605,6 @@ endif
 LINK_FLAGS             += $(LINK_OPT_FLAGS_$(BUILD))
 
 ifeq ("$(ENABLE_STATIC_LINK)-$(IsTarget)", "true-true")
-LINK_FLAGS             += -static
-endif
-
-# statically link romgen, so that it can be used on another Linux distribution
-# that may have an incompatible libc.so
-ifeq ($(host_os)-$(IsRomGen), linux-true)
 LINK_FLAGS             += -static
 endif
 
