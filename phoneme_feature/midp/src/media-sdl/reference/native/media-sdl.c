@@ -20,7 +20,17 @@ static int                      MediaSDL_NumChannel;
 static struct MediaSDL_Channel *MediaSDL_Channels;
 static int                      MediaSDL_MidiReady;
 
-#define SAMPLE_FREQ	22050
+#define PIKO_AUDIO_RATE_DEFAULT 48000
+
+static int MediaSDL_SampleFreq(void)
+{ static int freq = -1;
+  if (freq < 0)
+     { const char *v = getenv("PIKO_AUDIO_RATE");
+       freq = (v != NULL && *v != '\0') ? atoi(v) : PIKO_AUDIO_RATE_DEFAULT;
+       if (freq < 8000) freq = PIKO_AUDIO_RATE_DEFAULT;
+     }
+  return freq;
+}
 
 #define PIKO_MIDI_AMP_DEFAULT 300
 
@@ -42,9 +52,9 @@ void AudioSubsystemCallback(int chan)
 }
 
 int InitAudioSubsystem()
-{ int chan;
+{ int chan, freq = MediaSDL_SampleFreq();
   if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return(-1);
-  if (Mix_OpenAudio(SAMPLE_FREQ, AUDIO_S16SYS, 2, 4096) != 0) return(-2);
+  if (Mix_OpenAudio(freq, AUDIO_S16SYS, 2, (freq >= 32000) ? 8192 : 4096) != 0) return(-2);
   MediaSDL_MidiReady = (Timidity_Init() == 0);
   MediaSDL_NumChannel = Mix_AllocateChannels(32);
   if (MediaSDL_NumChannel < 1) return(-4);
@@ -116,7 +126,7 @@ struct NativeTonePlayer *CreateToneChunk(int Note, int Volume)
   if (Ret == NULL) return(NULL);
   Ret->MC.allocated = 0;
   Ret->MC.volume = MIX_MAX_VOLUME;
-  Ret->MC.alen = SAMPLE_FREQ / MidiNotes[Note];
+  Ret->MC.alen = MediaSDL_SampleFreq() / MidiNotes[Note];
   Ret->MC.abuf = malloc(Ret->MC.alen * 2);
   if (Ret->MC.abuf == NULL)
      { free(Ret);
@@ -241,7 +251,7 @@ KNIEXPORT KNI_RETURNTYPE_INT Java_javax_microedition_media_MIDIPlayer_nMidiPlaye
   else { KNI_GetRawArrayRegion(buf, 0, (jsize)BufferSize, (jbyte*)Buffer);
          RW = SDL_RWFromMem(Buffer, BufferSize);
          if (RW == NULL) ret = -2;
-         else { audio.freq = SAMPLE_FREQ;
+         else { audio.freq = MediaSDL_SampleFreq();
                 audio.format = AUDIO_S16SYS;
                 audio.channels = 2;
                 audio.samples = MIDI_CHUNK_SIZE >> 2;
@@ -330,7 +340,7 @@ KNIEXPORT KNI_RETURNTYPE_LONG Java_javax_microedition_media_MIDIPlayer_nGetMedia
   long Ret;
   jint id = KNI_GetParameterAsInt(1);
   NMP = (struct NativeMIDIPlayer *)id;
-  Ret = (NMP->MediaSample * 1000) / SAMPLE_FREQ;
+  Ret = (NMP->MediaSample * 1000) / MediaSDL_SampleFreq();
   Ret += (long)(GetTimeMillis() - NMP->LastTime);
   KNI_ReturnLong(Ret);
 }
